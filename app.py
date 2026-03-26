@@ -23,24 +23,37 @@ st.set_page_config(
 
 import streamlit as st
 
+# ─────────────────────────────
+# USUARIOS DESDE SECRETS
+# ─────────────────────────────
 USUARIOS = st.secrets["usuarios"]
 
-st.title("Login")
+# ─────────────────────────────
+# LOGIN
+# ─────────────────────────────
+if "auth" not in st.session_state:
+    st.session_state["auth"] = False
 
-user = st.text_input("Usuario")
-pwd = st.text_input("Contraseña", type="password")
+if not st.session_state["auth"]:
+    st.title("🔐 Login")
 
-if st.button("Ingresar"):
-    if user in USUARIOS and USUARIOS[user] == pwd:
-        st.session_state["auth"] = True
-        st.session_state["user"] = user
-    else:
-        st.error("Credenciales incorrectas")
+    user = st.text_input("Usuario")
+    pwd = st.text_input("Contraseña", type="password")
 
-if not st.session_state.get("auth"):
+    if st.button("Ingresar"):
+        if user in USUARIOS and USUARIOS[user] == pwd:
+            st.session_state["auth"] = True
+            st.session_state["user"] = user
+            st.rerun()
+        else:
+            st.error("Usuario o contraseña incorrectos")
+
     st.stop()
 
-st.success(f"Bienvenido {st.session_state['user']}")
+# ─────────────────────────────
+# APP NORMAL
+# ─────────────────────────────
+st.success(f"Bienvenido {st.session_state['user']} 👋")
 
 # ─────────────────────────────────────────────
 # ESTILOS
