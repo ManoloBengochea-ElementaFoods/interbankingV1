@@ -68,6 +68,17 @@ empresa = st.selectbox(
 )
 
 # ─────────────────────────────────────────────
+# FIX: reset cuentas si cambia empresa
+# ─────────────────────────────────────────────
+
+if "empresa_prev" not in st.session_state:
+    st.session_state["empresa_prev"] = empresa
+
+if st.session_state["empresa_prev"] != empresa:
+    st.session_state["cuentas"] = []
+    st.session_state["empresa_prev"] = empresa
+
+# ─────────────────────────────────────────────
 # CARGAR CUENTAS DINÁMICAMENTE
 # ─────────────────────────────────────────────
 
@@ -103,10 +114,16 @@ with col2:
     if st.button("Limpiar selección"):
         st.session_state["cuentas"] = []
 
+# 🔥 FIX: solo defaults válidos
+default_cuentas = [
+    c for c in st.session_state.get("cuentas", [])
+    if c in CUENTAS
+]
+
 cuentas_seleccionadas = st.multiselect(
     "Elegí las cuentas",
     options=CUENTAS,
-    default=st.session_state.get("cuentas", []),
+    default=default_cuentas,
     format_func=format_cuenta
 )
 
