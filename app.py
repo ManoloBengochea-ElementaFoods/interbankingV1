@@ -35,6 +35,8 @@ authenticator = stauth.Authenticate(
 
 # Render login
 authenticator.login()
+st.write("SESSION:", st.session_state)
+st.write("CONFIG:", config)
 
 name = st.session_state.get("name")
 authentication_status = st.session_state.get("authentication_status")
