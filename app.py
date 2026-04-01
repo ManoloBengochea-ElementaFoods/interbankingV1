@@ -1,18 +1,25 @@
 """
 app.py - Flask application for Interbanking Reportes
-Replaces Streamlit with a standard Flask + HTML frontend.
 """
 
+import os
 import base64
 import importlib
 from datetime import date, timedelta
+from functools import wraps
 
-from flask import Flask, jsonify, render_template, request, send_file
-import io
+from flask import Flask, jsonify, render_template, request, session, redirect, url_for
 
 from reportes.generador import generar_excel
+from auth_login import USUARIOS
 
 app = Flask(__name__)
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-secret-cambiar")
+
+# Verificación de variables de entorno al arrancar
+import logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 EMPRESAS_MODULOS = {
     "eliantus": "srcELIANTUS.CodigoBancosEliantus",
@@ -21,17 +28,56 @@ EMPRESAS_MODULOS = {
 }
 
 
+# ─────────────────────────────────────────────
+# AUTH
+# ─────────────────────────────────────────────
+
+def login_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not session.get("usuario"):
+            return redirect(url_for("login"))
+        return f(*args, **kwargs)
+    return decorated
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    error = None
+    if request.method == "POST":
+        usuario = request.form.get("usuario")
+        password = request.form.get("password")
+        if USUARIOS.get(usuario) == password:
+            session["usuario"] = usuario
+            return redirect(url_for("index"))
+        error = "Usuario o contraseña incorrectos"
+    return render_template("login.html", error=error)
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("login"))
+
+
+# ─────────────────────────────────────────────
+# RUTAS PRINCIPALES
+# ─────────────────────────────────────────────
+
 @app.route("/")
+@login_required
 def index():
     hoy = date.today()
     return render_template(
         "index.html",
         desde=(hoy - timedelta(days=7)).isoformat(),
         hasta=hoy.isoformat(),
+        usuario=session.get("usuario"),
     )
 
 
 @app.route("/api/cuentas")
+@login_required
 def api_cuentas():
     empresa = request.args.get("empresa", "eliantus").lower()
     if empresa not in EMPRESAS_MODULOS:
@@ -55,6 +101,7 @@ def api_cuentas():
 
 
 @app.route("/api/generar", methods=["POST"])
+@login_required
 def api_generar():
     data = request.get_json(force=True)
     empresa = data.get("empresa", "").lower()

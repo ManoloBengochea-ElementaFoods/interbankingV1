@@ -45,6 +45,28 @@
     header h1 { font-size: 1.25rem; font-weight: 600; letter-spacing: .3px; }
     header p  { font-size: .8rem; opacity: .75; margin-top: 2px; }
 
+    .header-right {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: .85rem;
+    }
+    .header-right span { opacity: .85; }
+    .btn-logout {
+      padding: 6px 14px;
+      background: rgba(255,255,255,.15);
+      color: #fff;
+      border: 1px solid rgba(255,255,255,.3);
+      border-radius: 6px;
+      font-size: .82rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background .15s;
+    }
+    .btn-logout:hover { background: rgba(255,255,255,.25); }
+
     /* ── LAYOUT ────────────────────────────────── */
     main {
       max-width: 820px;
@@ -202,7 +224,6 @@
     .btn-primary:active:not(:disabled) { transform: scale(.99); }
     .btn-primary:disabled { opacity: .55; cursor: not-allowed; }
 
-    /* spinner */
     .spinner {
       width: 18px; height: 18px;
       border: 2px solid rgba(255,255,255,.35);
@@ -276,7 +297,6 @@
     }
     .btn-download:hover { background: #185c38; }
 
-    /* ── SCROLLBAR ─────────────────────────────── */
     #accounts-list::-webkit-scrollbar { width: 6px; }
     #accounts-list::-webkit-scrollbar-thumb { background: #ccc; border-radius: 4px; }
 
@@ -297,6 +317,10 @@
   <div>
     <h1>Interbanking · Extractos bancarios</h1>
     <p>Seleccioná empresa, cuentas y período para generar el reporte</p>
+  </div>
+  <div class="header-right">
+    <span>{{ usuario }}</span>
+    <a href="/logout" class="btn-logout">Cerrar sesión</a>
   </div>
 </header>
 
@@ -380,7 +404,6 @@
 
   let allCuentas = [];
 
-  // ── Cargar cuentas ──────────────────────────────────────────────────
   async function cargarCuentas(empresa) {
     accountList.className = "loading";
     accountList.textContent = "Cargando cuentas…";
@@ -422,7 +445,6 @@
 
   empresaSel.addEventListener("change", () => cargarCuentas(empresaSel.value));
 
-  // ── Generar reporte ─────────────────────────────────────────────────
   btnGenerar.addEventListener("click", async () => {
     resultsDiv.innerHTML = "";
 
@@ -433,20 +455,10 @@
     const desde = document.getElementById("desde").value;
     const hasta = document.getElementById("hasta").value;
 
-    if (!indices.length) {
-      showAlert("Seleccioná al menos una cuenta.", "warning");
-      return;
-    }
-    if (!desde || !hasta) {
-      showAlert("Completá las fechas.", "warning");
-      return;
-    }
-    if (desde > hasta) {
-      showAlert("La fecha 'Desde' no puede ser mayor que 'Hasta'.", "error");
-      return;
-    }
+    if (!indices.length) { showAlert("Seleccioná al menos una cuenta.", "warning"); return; }
+    if (!desde || !hasta) { showAlert("Completá las fechas.", "warning"); return; }
+    if (desde > hasta)    { showAlert("La fecha 'Desde' no puede ser mayor que 'Hasta'.", "error"); return; }
 
-    // Loading state
     btnGenerar.disabled = true;
     btnGenerar.innerHTML = `<div class="spinner"></div> Procesando cuentas…`;
 
@@ -454,10 +466,7 @@
       const res  = await fetch("/api/generar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          empresa: empresaSel.value,
-          desde, hasta, indices,
-        }),
+        body: JSON.stringify({ empresa: empresaSel.value, desde, hasta, indices }),
       });
 
       const data = await res.json();
@@ -488,7 +497,6 @@
     const sinMov = data.resultados.filter(r => !r.ok);
 
     let html = `<div class="card"><div class="card-title">Resultados</div>`;
-
     html += `<div class="result-summary">`;
     if (conMov.length)
       html += `<span class="result-chip" style="background:var(--green);color:var(--green-text)">✔ ${conMov.length} con movimientos</span>`;
@@ -510,22 +518,18 @@
   }
 
   function triggerDownload(base64, filename) {
-    const bytes  = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
-    const blob   = new Blob([bytes], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-    const url    = URL.createObjectURL(blob);
-    const a      = document.createElement("a");
-    a.href       = url;
-    a.download   = filename;
+    const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+    const blob  = new Blob([bytes], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const url   = URL.createObjectURL(blob);
+    const a     = document.createElement("a");
+    a.href      = url;
+    a.download  = filename;
     a.click();
     URL.revokeObjectURL(url);
   }
 
   function showAlert(msg, type) {
-    const icons = {
-      warning: "⚠",
-      error:   "✖",
-      success: "✔",
-    };
+    const icons = { warning: "⚠", error: "✖", success: "✔" };
     resultsDiv.innerHTML = `
       <div class="alert alert-${type}">
         <span>${icons[type] || "ℹ"}</span>
@@ -533,7 +537,6 @@
       </div>`;
   }
 
-  // ── Init ────────────────────────────────────────────────────────────
   cargarCuentas(empresaSel.value);
 </script>
 </body>
