@@ -10,8 +10,10 @@ from functools import wraps
 
 from flask import Flask, jsonify, render_template, request, session, redirect, url_for
 
+import json
 from reportes.generador import generar_excel
-from auth_login import USUARIOS
+
+USUARIOS = json.loads(os.environ.get("AUTH_USUARIOS", "{}"))
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-secret-cambiar")
