@@ -168,7 +168,7 @@ def generar_excel(empresa: str, desde: str, hasta: str, cuentas_seleccionadas=No
     for cuenta in cuentas_a_usar:
         try:
             # Pasamos customer_id en lugar de secrets
-            _, statements = obtener_extractos(cuenta, token, desde, hasta, customer_id)
+            _, statements = obtener_extractos(cuenta, token, desde, hasta)
 
             if not statements:
                 resultados.append((cuenta, False))
