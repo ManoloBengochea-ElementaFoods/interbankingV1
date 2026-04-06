@@ -1,16 +1,18 @@
 """
 generador.py
-Genera un único Excel en memoria con todos los movimientos de cuentas seleccionadas.
+Genera un ZIP en memoria con un Excel por cuenta seleccionada.
+Nombre de cada archivo: EMPRESA_BANCO_DESDE_HASTA.xlsx
 """
 
 import io
+import zipfile
 import importlib
 from datetime import datetime
 
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment
 
-from auth import obtener_token  # ahora usa variables de entorno de Azure
+from auth import obtener_token
 
 # ─────────────────────────────────────────────
 # CONFIG EMPRESAS
@@ -37,13 +39,10 @@ EMPRESAS = {
 
 def cargar_modulos(empresa):
     config = EMPRESAS[empresa]
-
     mod_cuentas = importlib.import_module(config["cuentas"])
     mod_mov = importlib.import_module(config["movimientos"])
-
     CUENTAS = mod_cuentas.CUENTAS
     obtener_extractos = getattr(mod_mov, config["func_movimientos"])
-
     return CUENTAS, obtener_extractos
 
 
@@ -60,6 +59,7 @@ SUBTOTAL_FONT = Font(bold=True)
 ACCOUNT_FILL  = PatternFill("solid", fgColor="FFF2CC")
 ACCOUNT_FONT  = Font(bold=True, color="7B6000")
 NUMBER_FORMAT = '#,##0.00'
+
 
 # ─────────────────────────────────────────────
 # FUNCIONES DE FORMATO
@@ -78,7 +78,6 @@ def _escribir_cuenta(ws, cuenta, statements, desde, hasta):
 
     ws.append(["Fecha", "Importe", "Tipo", "CUIT", "Descripcion",
                "Saldo Inicial", "Saldo Final", "Total Débitos", "Total Créditos"])
-
     for cell in ws[ws.max_row]:
         cell.font = HEADER_FONT
         cell.fill = HEADER_FILL
@@ -99,12 +98,11 @@ def _escribir_cuenta(ws, cuenta, statements, desde, hasta):
 
         if not movimientos:
             ws.append([fecha_fmt, None, "RESUMEN DIA", None, "(sin movimientos)",
-                        opening, ending, deb_total, cred_total])
+                       opening, ending, deb_total, cred_total])
             _aplicar_fila(ws, ws.max_row, SUBTOTAL_FILL, SUBTOTAL_FONT)
             continue
 
         saldo_corriente = opening
-
         for mov in sorted(movimientos, key=lambda x: x.get("process_date", "")):
             importe = mov.get("amount") or 0
             saldo_ini = saldo_corriente
@@ -118,11 +116,11 @@ def _escribir_cuenta(ws, cuenta, statements, desde, hasta):
             ]))
 
             ws.append([fecha_fmt, importe, mov.get("debit_credit_type"),
-                        mov.get("customer_cuit"), descripcion,
-                        saldo_ini, saldo_fin, None, None])
+                       mov.get("customer_cuit"), descripcion,
+                       saldo_ini, saldo_fin, None, None])
 
         ws.append([fecha_fmt, None, "RESUMEN DIA", None, None,
-                    opening, ending, deb_total, cred_total])
+                   opening, ending, deb_total, cred_total])
         _aplicar_fila(ws, ws.max_row, SALDO_FILL, SALDO_FONT)
 
     ws.append([])
@@ -130,7 +128,6 @@ def _escribir_cuenta(ws, cuenta, statements, desde, hasta):
 
 def _aplicar_formato_hoja(ws):
     col_numericas = [2, 6, 7, 8, 9]
-
     for row in ws.iter_rows(min_row=2):
         for cell in row:
             if cell.column in col_numericas and isinstance(cell.value, (int, float)):
@@ -145,48 +142,61 @@ def _aplicar_formato_hoja(ws):
     ws.freeze_panes = "A2"
 
 
+def _nombre_archivo(empresa, cuenta, desde, hasta):
+    """Genera el nombre: EMPRESA_BANCO_DESDE_HASTA.xlsx"""
+    banco = cuenta.banco.replace(" ", "_")
+    nombre = cuenta.nombre.replace(" ", "_")
+    return f"{empresa.upper()}_{nombre}_{banco}_{desde}_{hasta}.xlsx".replace("/", "-")
+
+
+def _generar_excel_cuenta(cuenta, statements, desde, hasta):
+    """Genera un Excel en memoria para una sola cuenta."""
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Extracto"
+    _escribir_cuenta(ws, cuenta, statements, desde, hasta)
+    _aplicar_formato_hoja(ws)
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return buf.read()
+
+
 # ─────────────────────────────────────────────
 # MAIN
 # ─────────────────────────────────────────────
 
-def generar_excel(empresa: str, desde: str, hasta: str, cuentas_seleccionadas=None):
+def generar_zip(empresa: str, desde: str, hasta: str, cuentas_seleccionadas=None):
     """
-    Genera un Excel en memoria usando variables de entorno de Azure.
+    Genera un ZIP en memoria con un Excel por cuenta.
+    Retorna (zip_bytes, resultados).
     """
-
     CUENTAS, obtener_extractos = cargar_modulos(empresa)
-    token, customer_id = obtener_token(empresa)  # ahora obtiene token + customer_id
+    token, customer_id = obtener_token(empresa)
 
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Extractos"
-
-    hubo_datos = False
     cuentas_a_usar = cuentas_seleccionadas if cuentas_seleccionadas else CUENTAS
     resultados = []
 
-    for cuenta in cuentas_a_usar:
-        try:
-            # Pasamos customer_id en lugar de secrets
-            _, statements = obtener_extractos(cuenta, token, desde, hasta)
+    zip_buf = io.BytesIO()
+    with zipfile.ZipFile(zip_buf, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+        for cuenta in cuentas_a_usar:
+            try:
+                _, statements = obtener_extractos(cuenta, token, desde, hasta)
 
-            if not statements:
+                if not statements:
+                    print(f"[INFO] {cuenta.nombre} → sin movimientos")
+                    resultados.append((cuenta, False))
+                    continue
+
+                excel_bytes = _generar_excel_cuenta(cuenta, statements, desde, hasta)
+                filename = _nombre_archivo(empresa, cuenta, desde, hasta)
+                zf.writestr(filename, excel_bytes)
+                resultados.append((cuenta, True))
+                print(f"[INFO] {cuenta.nombre} → OK ({filename})")
+
+            except Exception as e:
+                print(f"[ERROR] {cuenta.nombre}: {e}")
                 resultados.append((cuenta, False))
-                continue
 
-            resultados.append((cuenta, True))
-            hubo_datos = True
-            _escribir_cuenta(ws, cuenta, statements, desde, hasta)
-
-        except Exception:
-            resultados.append((cuenta, False))
-
-    if not hubo_datos:
-        ws.append(["Sin movimientos para el período seleccionado."])
-
-    _aplicar_formato_hoja(ws)
-
-    buf = io.BytesIO()
-    wb.save(buf)
-    buf.seek(0)
-    return buf.read(), resultados
+    zip_buf.seek(0)
+    return zip_buf.read(), resultados

@@ -11,7 +11,7 @@ from functools import wraps
 from flask import Flask, jsonify, render_template, request, session, redirect, url_for
 
 import json
-from reportes.generador import generar_excel
+from reportes.generador import generar_zip
 
 USUARIOS = json.loads(os.environ.get("AUTH_USUARIOS", "{}"))
 
@@ -125,7 +125,7 @@ def api_generar():
     cuentas_sel = [todas[i] for i in indices if 0 <= i < len(todas)]
 
     try:
-        excel_bytes, resultados = generar_excel(
+        zip_bytes, resultados = generar_zip(
             empresa=empresa,
             desde=desde,
             hasta=hasta,
@@ -136,8 +136,8 @@ def api_generar():
 
     return jsonify(
         {
-            "excel": base64.b64encode(excel_bytes).decode(),
-            "filename": f"reporte_{empresa}_{desde}_{hasta}.xlsx",
+            "zip": base64.b64encode(zip_bytes).decode(),
+            "filename": f"{empresa.upper()}_{desde}_{hasta}.zip",
             "resultados": [
                 {"nombre": c.abreviatura, "ok": ok} for c, ok in resultados
             ],

@@ -477,7 +477,7 @@
       }
 
       renderResultados(data);
-      triggerDownload(data.excel, data.filename);
+      triggerDownload(data.zip, data.filename);
 
     } catch (err) {
       showAlert("Error de conexión al servidor.", "error");
@@ -519,7 +519,7 @@
 
   function triggerDownload(base64, filename) {
     const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
-    const blob  = new Blob([bytes], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const blob  = new Blob([bytes], { type: "application/zip" });
     const url   = URL.createObjectURL(blob);
     const a     = document.createElement("a");
     a.href      = url;
