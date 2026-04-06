@@ -150,7 +150,7 @@ def _formatear_fecha(fecha_iso):
 
 def _nombre_archivo(cuenta, desde, hasta):
     """Genera el nombre: BANCO_DD-MM_DD-MM.xlsx"""
-    banco = cuenta.banco.replace(" ", "_")
+    banco = cuenta.abreviatura.replace(" ", "_")
     return f"{banco}_{_formatear_fecha(desde)}_{_formatear_fecha(hasta)}.xlsx"
 
 
