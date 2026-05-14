@@ -63,4 +63,4 @@ jobs:
         with:
           app-name: 'interbankingExtractos'
           slot-name: 'Production'
-          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_56AF6F6F6E6B46898A790D48F72332E3 }}
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_74E20BBC30014517B5A020C18208F358 }}
